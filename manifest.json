@@ -1,20 +1,16 @@
 {
   "manifest_version": 2,
-  "name": "low-cost-vpn",
+
+  "name": "test #5",
   "version": "1.0",
   "browser_action": {
     "default_popup": "index.html",
-    "default_title": "Yet another test",
-    "default_icon": {
-		"16":"assets/images/plane.svg",
-		"32":"assets/images/plane.svg",
-		"48":"assets/images/plane.svg"
-    }
+    "default_title": "Yet another test"
   },
   "icons": {
 	    "16":"assets/images/plane.svg",
 	    "32":"assets/images/plane.svg",
 		"48":"assets/images/plane.svg"
   },
-  "permissions": ["tabs"]
+  "permissions": ["tabs", "http://localhost/*"]
 }
