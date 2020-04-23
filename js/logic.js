@@ -1,10 +1,19 @@
 document.addEventListener('DOMContentLoaded', function(){
   $(document).ready(function(){
+    var message = "";
+    $("#first_name").change(function(){
+      message = "";
+      message += nameChanged(this.value) + ", ";
+    });
+    $("#last_name").change(function(){
+      message += nameChanged(this.value);
+    });
     $("#btn1").click(function(){
       $.ajax(
         {
           url: "http://localhost:8081",
-          data: "Hello",
+          type: "POST",
+          data: message,
           success: function(data, status, jqXhr){
             $("#welcome_p").html(data);
         },
@@ -15,3 +24,8 @@ document.addEventListener('DOMContentLoaded', function(){
     });
   });
 });
+
+function nameChanged(value)
+{
+  return value;
+}
