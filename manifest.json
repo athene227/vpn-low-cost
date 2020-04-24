@@ -3,12 +3,13 @@
   "name": "vpn-low-cost Extension",
   "version": "1.0",
   "browser_action": {
-    "default_popup": "index.html"
+    "default_popup": "index.html",
+	"default_icon": "assets/images/plane16.png"
   },
   "icons": {
-	    "16":"assets/images/plane.svg",
-	    "32":"assets/images/plane.svg",
-		"48":"assets/images/plane.svg"
+	    "16":"assets/images/plane16.png",
+	    "32":"assets/images/plane32.png",
+		"48":"assets/images/plane64.png"
   },
   "permissions": ["tabs", "http://localhost/*"],
   "content_scripts":[
