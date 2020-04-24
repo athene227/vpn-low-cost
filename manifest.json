@@ -3,21 +3,22 @@
   "name": "vpn-low-cost Extension",
   "version": "1.0",
   "browser_action": {
-    "default_popup": "index.html",
-	"default_icon": "assets/images/plane16.png"
+     "default_popup": "index.html",
+	   "default_icon": "assets/images/plane16.png"
   },
   "icons": {
-	    "16":"assets/images/plane16.png",
-	    "32":"assets/images/plane32.png",
-		"48":"assets/images/plane64.png"
+	     "16":"assets/images/plane16.png",
+	     "32":"assets/images/plane32.png",
+		   "48":"assets/images/plane64.png"
   },
   "permissions": ["tabs", "http://localhost/*"],
   "content_scripts":[
-	{
-		"matches": [
-			"<all_urls>"
-		],
-		"js": ["js/content_script.js"]
-	}
-  ]
+	   {
+		"matches": ["*://www.lufthansa.com/*"],
+		"js": ["js/jquery-3.5.0.js", "js/content_script.js"]
+	   }
+   ],
+ "background":{
+	  "scripts": ["js/jquery-3.5.0.js", "js/background_script.js"]
+  }
 }
