@@ -1,5 +1,7 @@
+const { stat } = require("fs");
 const http = require("http");
 const utils = require("./serverUtils");
+
 
 let message = "";
 
@@ -13,18 +15,17 @@ http.createServer(function (request, response){
     response.setHeader('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
     response.writeHead(200, {'Content-Type': 'text/html'});
 
-    var result = test(message).then(function(result){
+    var result = searchForFlight(message).then(function(result){
       console.log("Sent: " + result);
 
-      response.write(result);
       response.end(result);
     });
   });
 }).listen(8081);
 
-console.log("server is running!");
+console.log("TicketMe serve is running!");
 
-async function test(data){
+async function searchForFlight(data){
 
   //-----   puppeteer configuration   -----
   const puppeteer = require('puppeteer-extra');
@@ -32,50 +33,123 @@ async function test(data){
   puppeteer.use(stealthPlugin());
 
   //-----   browser creation    -----
-  const browser = await puppeteer.launch({headless: false, slowMo: 150});
+  var browser = await puppeteer.launch({headless: false, slowMo: 150});
 
   //-----   normal search page creation   -----
-  const page = await browser.newPage();
-  const result = utils.fillData(page, data, "");
+  var page = await browser.newPage();
+  var result = utils.fillData(page, data, "");
 
   //-----   incognito mode page creation    -----
-  const context = await browser.createIncognitoBrowserContext();
-  const incognitoPage = await context.newPage();
-  const incognitoResult = utils.fillData(incognitoPage, data, " and incognito mode");
+  var context = await browser.createIncognitoBrowserContext();
+  var incognitoPage = await context.newPage();
+  var incognitoResult = utils.fillData(incognitoPage, data, " and incognito mode");
 
   //-----   wait for search result which are returned as Promis objects due to async function   -----
   var awaitedResult = await result;
   var awaitedIncognitoResult = await incognitoResult;
 
   //-----   dispose of browser    -----
+
   browser.close();
+  var finalResultStatus = getFinalResult(awaitedResult, awaitedIncognitoResult)
+  var resultMessageForClient;
+  if(finalResultStatus == status.SUCCESS) {
+    return parseResults(awaitedResult, awaitedIncognitoResult);
+  }
+  else if (finalResultStatus == status.SERVER_ERROR) {
+    return "There was an unexpected error in the server, please run your search again.";
+  }
+  else if (finalResultStatus == status.RUN_BOTH ) {
+    browser = await puppeteer.launch({headless: false, slowMo: 150});
+    context = await browser.createIncognitoBrowserContext();
 
-  if(awaitedResult == "" && awaitedIncognitoResult == "")
-  {
-    return "There was an issue while searching for results";
+    page = await browser.newPage();
+    incognitoPage = await context.newPage();
+    
+    incognitoResult = utils.fillData(incognitoPage, data, " and incognito mode");
+    result = utils.fillData(page, data, "");
+
+    awaitedIncognitoResult = await incognitoResult;
+    awaitedResult = await result;
+
+    var finalResult = getFinalResult(awaitedResult, awaitedIncognitoResult);
+    
+    if(finalResult == status.SUCCESS) {
+      resultMessageForClient = parseResults(awaitedResult, awaitedIncognitoResult);
+    }
+    else if (finalResult == status.RUN_INCOGNITO) { resultMessageForClient = awaitedResult; }
+    else if (finalResult == status.RUN_REGULAR) { resultMessageForClient = awaitedIncognitoResult; }
+    else { resultMessageForClient = "There was an unexpected error in the server, please run your search again."; }
+  }
+  else if (finalResultStatus == status.RUN_INCOGNITO ) {
+    browser = await puppeteer.launch({headless: false, slowMo: 150});
+    context = await browser.createIncognitoBrowserContext();
+    incognitoPage = await context.newPage();
+
+    incognitoResult = utils.fillData(incognitoPage, data, " and incognito mode");
+
+    awaitedIncognitoResult = await incognitoResult;
+    var finalResult = getFinalResult(awaitedResult, awaitedIncognitoResult);
+    if(finalResult == status.SUCCESS) { 
+      resultMessageForClient = parseResults(awaitedResult, awaitedIncognitoResult);
+    }
+    else if (finalResult == status.RUN_INCOGNITO) { resultMessageForClient = awaitedResult; }
+  }
+  else if (finalResultStatus == status.RUN_REGULAR) {
+    browser = await puppeteer.launch({headless: false, slowMo: 150});
+    page = await browser.newPage();
+    
+    result = utils.fillData(page, data, "");
+
+    awaitedResult = await result;
+    var finalResult = getFinalResult(awaitedResult, awaitedIncognitoResult);
+    if(finalResult == status.SUCCESS) { 
+      resultMessageForClient = parseResults(awaitedResult, awaitedIncognitoResult);
+    }
+    else if (finalResult == status.RUN_REGULAR) { resultMessageForClient = awaitedIncognitoResult; }
   }
 
-  if(awaitedIncognitoResult == ""){
-    return awaitedResult;
-  }
+  browser.close();
+  return resultMessageForClient;
+}
 
-  if(awaitedResult == ""){
-    return awaitedIncognitoResult;
-  }
+const status = {
+  SERVER_ERROR: "server_error",
+  RUN_BOTH: "run_both",
+  RUN_INCOGNITO: "run_incognito",
+  RUN_REGULAR: "run_regular",
+  SUCCESS: "success"
+}
 
-  //-----   parse the result retreived to get the price per ticket    -----
-  var firstStr = awaitedResult.substring(awaitedResult.indexOf("is") + 2, awaitedResult.length);
-  var secondStr = awaitedIncognitoResult.substring(awaitedIncognitoResult.indexOf("is") + 2, awaitedIncognitoResult.length);
-  var firstStrArr = firstStr.split(" ");
-  var secondStrArr = secondStr.split(" ");
-  firstStr = firstStrArr[0].slice(1);
-  secondStr = secondStrArr[0].slice(1);
+function getFinalResult(awaitedResult, awaitedIncognitoResult) {
+  if (awaitedResult == "" && awaitedIncognitoResult == "") {
+    return status.RUN_BOTH;
+  }
+  else if(awaitedResult != "" && awaitedIncognitoResult != "") {
+    return status.SUCCESS;
+  }
+  else if( awaitedResult != "" && awaitedIncognitoResult == "") {
+    return status.RUN_INCOGNITO;
+  }
+  else if(awaitedIncognitoResult != "" && awaitedResult == "") {
+    return status.RUN_REGULAR;
+  }
+}
 
-  //-----   if normal search result is higher or equal to the incognito mode result, return the incognito mode result   -----
-  if(parseInt(firstStr) >= parseInt(secondStr)){
-    return awaitedIncognitoResult;
-  }
-  else{                   //-----   else, return the normal search result   -----
-    return awaitedResult;
-  }
+function parseResults(awaitedResult, awaitedIncognitoResult) {
+      //-----   parse the result retreived to get the price per ticket    -----
+      var firstStr = awaitedResult.substring(awaitedResult.indexOf("is") + 2, awaitedResult.length);
+      var secondStr = awaitedIncognitoResult.substring(awaitedIncognitoResult.indexOf("is") + 2, awaitedIncognitoResult.length);
+      var firstStrArr = firstStr.split(" ");
+      var secondStrArr = secondStr.split(" ");
+      firstStr = firstStrArr[0].slice(1);
+      secondStr = secondStrArr[0].slice(1);
+  
+      //-----   if normal search result is higher or equal to the incognito mode result, return the incognito mode result   -----
+      if(parseInt(firstStr) >= parseInt(secondStr)){
+        return awaitedIncognitoResult;
+      }
+      else{                   //-----   else, return the normal search result   -----
+        return awaitedResult;
+      }
 }
